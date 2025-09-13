@@ -11,6 +11,12 @@
             "use": [
                 "abort=src/nft/index/abort"
             ]
+        },
+        "math": {
+            "outFile": "build/MathContract.wasm",
+            "use": [
+                "abort=src/math/index/abort"
+            ]
         }
     },
     "options": {

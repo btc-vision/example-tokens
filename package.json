@@ -5,7 +5,8 @@
     "main": "index.js",
     "scripts": {
         "build:token": "asc src/token/index.ts --target token --measure --uncheckedBehavior never",
-        "build:nft": "asc src/nft/index.ts --target nft --measure --uncheckedBehavior never"
+        "build:nft": "asc src/nft/index.ts --target nft --measure --uncheckedBehavior never",
+        "build:math": "asc src/math/index.ts --target math --measure --uncheckedBehavior never"
     },
     "author": "BlobMaster41",
     "license": "MIT",
