@@ -20,7 +20,7 @@
 - Download and install the [OP_WALLET Chrome Extension](https://opnet.org).
 - Set up the wallet and switch the network to Regtest.
 
-### 2. Obtain Testnet Bitcoin
+### 2. Obtain Regtest Bitcoin
 
 - If you don't have any Regtest Bitcoin, get some from [this faucet](https://faucet.opnet.org/).
 
@@ -47,7 +47,7 @@ Here’s what each property means and how you can customize it:
 - **Example**: If you want a total supply of 1,000,000 tokens with 18 decimals, the value should be `1000000000000000000000000`.
 
 ```typescript
-const maxSupply: u256 = u128.fromString('1000000000000000000000000').toU256(); // 1,000,000 tokens with 18 decimals
+const maxSupply: u256 = u256.fromString('1000000000000000000000000000'); // Your max supply. (Here, 1 billion tokens)
 ```
 
 2. **`decimals`**:
@@ -65,7 +65,7 @@ const decimals: u8 = 18; // Your decimals
 - This will be displayed in wallets and exchanges.
 
 ```typescript
-const name: string = 'YourTokenName'; // e.g., 'My Custom Token'
+const name: string = 'Test'; // Your token name
 ```
 
 4. **`symbol`**:
@@ -74,7 +74,7 @@ const name: string = 'YourTokenName'; // e.g., 'My Custom Token'
 - Similar to how "BTC" represents Bitcoin.
 
 ```typescript
-const symbol: string = 'SYM'; // e.g., 'MYT'
+const symbol: string = 'TEST'; // Your token symbol
 ```
 
 #### **Modifying the Contract Code**
@@ -82,10 +82,10 @@ const symbol: string = 'SYM'; // e.g., 'MYT'
 Open the `OP_20` template repository in your IDE or text editor and navigate to `src/contracts/MyToken.ts`. Look for the following section in the `onInstantiated` method:
 
 ```typescript
-const maxSupply: u256 = u128.fromString('1000000000000000000000000').toU256(); // Your max supply
-const decimals: u8 = 18; // Your decimals
-const name: string = 'YourTokenName'; // Your token name
-const symbol: string = 'SYM'; // Your token symbol
+const maxSupply: u256 = u256.fromString('1000000000000000000000000000'); // Your max supply. (Here, 1 billion tokens)
+const decimals: u8 = 18; // Your decimals.
+const name: string = 'Test'; // Your token name.
+const symbol: string = 'TEST'; // Your token symbol.
 ```
 
 Modify the values as needed for your token.
@@ -99,7 +99,7 @@ After customizing your token's properties, build the contract:
 
     ```sh
     npm install
-    npm run build
+    npm run build:token
     ```
 
 - After building, a `build` folder will be created in the root of the `OP_20` folder. Look for `[nameoftoken].wasm` for the compiled contract.
