@@ -10,7 +10,7 @@
     "author": "BlobMaster41",
     "license": "MIT",
     "devDependencies": {
-        "@types/node": "^24.5.2",
+        "@types/node": "^24.6.0",
         "assemblyscript": "^0.28.8",
         "prettier": "^3.6.2"
     },
@@ -35,6 +35,6 @@
         "gulplog": "^2.2.0",
         "ts-node": "^10.9.2",
         "typescript": "^5.9.2",
-        "typescript-eslint": "^8.44.1"
+        "typescript-eslint": "^8.45.0"
     }
 }
