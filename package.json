@@ -10,7 +10,7 @@
     "author": "BlobMaster41",
     "license": "MIT",
     "devDependencies": {
-        "@types/node": "^24.6.0",
+        "@types/node": "^24.6.2",
         "assemblyscript": "^0.28.8",
         "prettier": "^3.6.2"
     },
@@ -29,12 +29,12 @@
     "dependencies": {
         "@assemblyscript/loader": "^0.28.8",
         "@btc-vision/as-bignum": "^0.0.5",
-        "@btc-vision/btc-runtime": "^1.9.12",
+        "@btc-vision/btc-runtime": "^1.9.13",
         "@btc-vision/opnet-transform": "^0.1.12",
-        "@eslint/js": "^9.36.0",
+        "@eslint/js": "^9.37.0",
         "gulplog": "^2.2.0",
         "ts-node": "^10.9.2",
-        "typescript": "^5.9.2",
+        "typescript": "^5.9.3",
         "typescript-eslint": "^8.45.0"
     }
 }
