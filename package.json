@@ -31,7 +31,7 @@
         "@btc-vision/as-bignum": "^0.0.5",
         "@btc-vision/btc-runtime": "^1.9.16",
         "@btc-vision/opnet-transform": "^0.1.12",
-        "@eslint/js": "9.38.0",
+        "@eslint/js": "9.39.1",
         "gulplog": "^2.2.0",
         "ts-node": "^10.9.2",
         "typescript": "^5.9.3",
