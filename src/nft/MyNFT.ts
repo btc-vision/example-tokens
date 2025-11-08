@@ -10,7 +10,6 @@ import {
     Potential,
     Revert,
     SafeMath,
-    SELECTOR_BYTE_LENGTH,
     StoredBoolean,
     StoredMapU256,
     StoredString,
@@ -43,9 +42,6 @@ const blockReservedAmountPointer: u16 = Blockchain.nextPointer;
 const totalActiveReservedPointer: u16 = Blockchain.nextPointer;
 const blocksWithReservationsPointer: u16 = Blockchain.nextPointer;
 const mintEnabledPointer: u16 = Blockchain.nextPointer;
-
-// onOP721Received(address,address,uint256,bytes)
-const ON_OP721_RECEIVED_SELECTOR: u32 = 0xd83e7dbc;
 
 @final
 export class MyNFT extends OP721 {
@@ -447,35 +443,6 @@ export class MyNFT extends OP721 {
         response.writeU64(MyNFT.MINT_PRICE);
         response.writeU64(MyNFT.RESERVATION_FEE_PERCENT);
         response.writeU64(MyNFT.MIN_RESERVATION_FEE);
-        return response;
-    }
-
-    @method(
-        {
-            name: 'operator',
-            type: ABIDataTypes.ADDRESS,
-        },
-        {
-            name: 'from',
-            type: ABIDataTypes.ADDRESS,
-        },
-        {
-            name: 'tokenId',
-            type: ABIDataTypes.UINT256,
-        },
-        {
-            name: 'data',
-            type: ABIDataTypes.BYTES,
-        },
-    )
-    @returns({
-        name: 'selector',
-        type: ABIDataTypes.BYTES4,
-    })
-    public onOP721Received(_calldata: Calldata): BytesWriter {
-        const response = new BytesWriter(SELECTOR_BYTE_LENGTH);
-        response.writeSelector(ON_OP721_RECEIVED_SELECTOR);
-
         return response;
     }
 
