@@ -5,9 +5,11 @@ import {
     Blockchain,
     BytesWriter,
     Calldata,
+    ON_OP20_RECEIVED_SELECTOR,
     OP20,
     OP20InitParameters,
     SafeMath,
+    SELECTOR_BYTE_LENGTH,
 } from '@btc-vision/btc-runtime/runtime';
 
 @final
@@ -88,5 +90,34 @@ export class MyToken extends OP20 {
         this._totalSupply.set(SafeMath.add(this._totalSupply.value, totalAirdropped));
 
         return new BytesWriter(0);
+    }
+
+    @method(
+        {
+            name: 'operator',
+            type: ABIDataTypes.ADDRESS,
+        },
+        {
+            name: 'from',
+            type: ABIDataTypes.ADDRESS,
+        },
+        {
+            name: 'amount',
+            type: ABIDataTypes.UINT256,
+        },
+        {
+            name: 'data',
+            type: ABIDataTypes.BYTES,
+        },
+    )
+    @returns({
+        name: 'selector',
+        type: ABIDataTypes.BYTES4,
+    })
+    public onOP20Received(_calldata: Calldata): BytesWriter {
+        const response = new BytesWriter(SELECTOR_BYTE_LENGTH);
+        response.writeSelector(ON_OP20_RECEIVED_SELECTOR);
+
+        return response;
     }
 }
