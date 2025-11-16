@@ -10,7 +10,7 @@
     "author": "BlobMaster41",
     "license": "MIT",
     "devDependencies": {
-        "@types/node": "^24.10.0",
+        "@types/node": "^24.10.1",
         "assemblyscript": "^0.28.9",
         "prettier": "^3.6.2"
     },
@@ -24,12 +24,18 @@
         "wrapped bitcoin",
         "wbtc"
     ],
+    "overrides": {
+        "@btc-vision/btc-runtime": "1.9.16"
+    },
+    "resolutions": {
+        "@btc-vision/btc-runtime": "1.9.16"
+    },
     "homepage": "https://opnet.org",
     "type": "module",
     "dependencies": {
         "@assemblyscript/loader": "^0.28.9",
         "@btc-vision/as-bignum": "^0.0.5",
-        "@btc-vision/btc-runtime": "^1.9.16",
+        "@btc-vision/btc-runtime": "1.9.16",
         "@btc-vision/opnet-transform": "^0.1.12",
         "@eslint/js": "^9.39.1",
         "gulplog": "^2.2.0",
