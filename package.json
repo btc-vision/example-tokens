@@ -25,17 +25,17 @@
         "wbtc"
     ],
     "overrides": {
-        "@btc-vision/btc-runtime": "1.9.16"
+        "@btc-vision/btc-runtime": "1.10.3"
     },
     "resolutions": {
-        "@btc-vision/btc-runtime": "1.9.16"
+        "@btc-vision/btc-runtime": "1.10.3"
     },
     "homepage": "https://opnet.org",
     "type": "module",
     "dependencies": {
         "@assemblyscript/loader": "^0.28.9",
         "@btc-vision/as-bignum": "^0.0.5",
-        "@btc-vision/btc-runtime": "1.9.16",
+        "@btc-vision/btc-runtime": "1.10.3",
         "@btc-vision/opnet-transform": "^0.1.12",
         "@eslint/js": "^9.39.1",
         "gulplog": "^2.2.0",
