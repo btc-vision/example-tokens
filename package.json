@@ -25,7 +25,7 @@
         "wbtc"
     ],
     "overrides": {
-        "@btc-vision/btc-runtime": "1.9.16"
+        "@btc-vision/btc-runtime": "1.10.5"
     },
     "resolutions": {
         "@btc-vision/btc-runtime": "1.9.16"
@@ -34,13 +34,13 @@
     "type": "module",
     "dependencies": {
         "@assemblyscript/loader": "^0.28.9",
-        "@btc-vision/as-bignum": "^0.0.5",
-        "@btc-vision/btc-runtime": "1.9.16",
+        "@btc-vision/as-bignum": "^0.0.6",
+        "@btc-vision/btc-runtime": "1.10.5",
         "@btc-vision/opnet-transform": "^0.1.12",
         "@eslint/js": "^9.39.1",
         "gulplog": "^2.2.0",
         "ts-node": "^10.9.2",
         "typescript": "^5.9.3",
-        "typescript-eslint": "^8.46.3"
+        "typescript-eslint": "^8.47.0"
     }
 }
