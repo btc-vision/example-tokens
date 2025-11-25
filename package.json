@@ -28,7 +28,7 @@
         "@btc-vision/btc-runtime": "1.10.5"
     },
     "resolutions": {
-        "@btc-vision/btc-runtime": "1.9.16"
+        "@btc-vision/btc-runtime": "1.10.5"
     },
     "homepage": "https://opnet.org",
     "type": "module",
