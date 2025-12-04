@@ -11,7 +11,8 @@
 
 ## Prerequisites
 
-- Ensure you have [Node.js](https://nodejs.org/en/download/prebuilt-installer) and [npm](https://www.npmjs.com/) installed on your computer.
+- Ensure you have [Node.js](https://nodejs.org/en/download/prebuilt-installer) and [npm](https://www.npmjs.com/)
+  installed on your computer.
 
 ## Step-by-Step Guide
 
@@ -33,7 +34,8 @@
 
 ### 4. Edit Token Details
 
-This step is crucial for customizing your OP_20 token. You will need to adjust several key properties such as `maxSupply`, `decimals`, `name`, and `symbol`.
+This step is crucial for customizing your OP_20 token. You will need to adjust several key properties such as
+`maxSupply`, `decimals`, `name`, and `symbol`.
 
 #### **Understanding Token Properties**
 
@@ -44,7 +46,8 @@ Here’s what each property means and how you can customize it:
 - This defines the total supply of your token.
 - It’s a `u256` value representing the maximum number of tokens that will ever exist.
 - The number should include the full number of decimals.
-- **Example**: If you want a total supply of 1,000,000 tokens with 18 decimals, the value should be `1000000000000000000000000`.
+- **Example**: If you want a total supply of 1,000,000 tokens with 18 decimals, the value should be
+  `1000000000000000000000000`.
 
 ```typescript
 const maxSupply: u256 = u256.fromString('1000000000000000000000000000'); // Your max supply. (Here, 1 billion tokens)
@@ -79,7 +82,8 @@ const symbol: string = 'TEST'; // Your token symbol
 
 #### **Modifying the Contract Code**
 
-Open the `OP_20` template repository in your IDE or text editor and navigate to `src/contracts/MyToken.ts`. Look for the following section in the `onInstantiated` method:
+Open the `OP_20` template repository in your IDE or text editor and navigate to `src/contracts/token/MyToken.ts`. Look
+for the following section in the `onInstantiated` method:
 
 ```typescript
 const maxSupply: u256 = u256.fromString('1000000000000000000000000000'); // Your max supply. (Here, 1 billion tokens)
@@ -102,7 +106,8 @@ After customizing your token's properties, build the contract:
     npm run build:token
     ```
 
-- After building, a `build` folder will be created in the root of the `OP_20` folder. Look for `[nameoftoken].wasm` for the compiled contract.
+- After building, a `build` folder will be created in the root of the `OP_20` folder. Look for `[nameoftoken].wasm` for
+  the compiled contract.
 
 ### 6. Deploy the Token Contract
 
@@ -124,11 +129,13 @@ Your token is now tradeable on Motoswap!
 
 ## Customizing Your Token Further
 
-Now that you've set up the basic token properties, you can add additional functionality to your OP_20 token contract. Here are some common customizations:
+Now that you've set up the basic token properties, you can add additional functionality to your OP_20 token contract.
+Here are some common customizations:
 
 ### Adding Custom Methods
 
-To add custom functionality to your token, you can define new methods in your contract. For example, let's say you want to add an "airdrop" function that distributes tokens to multiple addresses.
+To add custom functionality to your token, you can define new methods in your contract. For example, let's say you want
+to add an "airdrop" function that distributes tokens to multiple addresses.
 
 #### Example: Airdrop Function
 
@@ -162,7 +169,8 @@ private airdrop(calldata: Calldata): BytesWriter {
 
 ### Overriding Methods
 
-You may want to override some of the existing methods in the `DeployableOP_20` base class. For example, you might want to add additional logic when minting tokens.
+You may want to override some of the existing methods in the `DeployableOP_20` base class. For example, you might want
+to add additional logic when minting tokens.
 
 #### Example: Overriding `_mint` Method
 
@@ -177,7 +185,8 @@ protected _mint(to: Address, amount: u256): void {
 
 ### Creating Events
 
-Events in OP_NET allow you to emit signals that external observers can listen to. These are useful for tracking specific actions within your contract, such as token transfers or approvals.
+Events in OP_NET allow you to emit signals that external observers can listen to. These are useful for tracking specific
+actions within your contract, such as token transfers or approvals.
 
 #### Example: Transfer Event
 
@@ -203,7 +212,8 @@ class MyToken extends DeployableOP_20 {
 
 ### Implementing Additional Security Measures
 
-If you want to add more control over who can call certain methods or add advanced features like pausing token transfers, you can implement access control mechanisms.
+If you want to add more control over who can call certain methods or add advanced features like pausing token transfers,
+you can implement access control mechanisms.
 
 #### Example: Only Owner Modifier
 
@@ -220,23 +230,29 @@ public mint(to: Address, amount: u256): void {
 
 ### Constructor Behavior
 
-- **Solidity:** The constructor runs only once at the time of contract deployment and is used for initializing contract state.
-- **AssemblyScript on OP_NET:** The constructor runs every time the contract is instantiated. Use `onInstantiated()` for initialization that should occur only once.
+- **Solidity:** The constructor runs only once at the time of contract deployment and is used for initializing contract
+  state.
+- **AssemblyScript on OP_NET:** The constructor runs every time the contract is instantiated. Use `onInstantiated()` for
+  initialization that should occur only once.
 
 ### State Management
 
-- **Solidity:** Variables declared at the contract level are automatically persistent and are stored in the contract's state.
-- **AssemblyScript on OP_NET:** Persistent state must be managed explicitly using storage classes like `StoredU256`, `StoredBoolean`, and `StoredString`.
+- **Solidity:** Variables declared at the contract level are automatically persistent and are stored in the contract's
+  state.
+- **AssemblyScript on OP_NET:** Persistent state must be managed explicitly using storage classes like `StoredU256`,
+  `StoredBoolean`, and `StoredString`.
 
 ### Method Overriding
 
 - **Solidity:** Method selectors are built-in, and overriding them is straightforward.
-- **AssemblyScript on OP_NET:** Method selectors are manually defined using functions like `encodeSelector()`, and method overriding is handled in `callMethod`.
+- **AssemblyScript on OP_NET:** Method selectors are manually defined using functions like `encodeSelector()`, and
+  method overriding is handled in `callMethod`.
 
 ### Event Handling
 
 - **Solidity:** Events are declared and emitted using the `emit` keyword.
-- **AssemblyScript on OP_NET:** Events are custom classes derived from `NetEvent` and are emitted using the `emitEvent` function.
+- **AssemblyScript on OP_NET:** Events are custom classes derived from `NetEvent` and are emitted using the `emitEvent`
+  function.
 
 ---
 
@@ -244,9 +260,11 @@ public mint(to: Address, amount: u256): void {
 
 ### Implementing Additional Custom Logic
 
-The OPNet runtime allows you to implement complex logic in your token contract. For example, you can add functionality such as token freezing, custom transaction fees, or governance mechanisms.
+The OPNet runtime allows you to implement complex logic in your token contract. For example, you can add functionality
+such as token freezing, custom transaction fees, or governance mechanisms.
 
-These features are implemented by extending the base `DeployableOP_20` or `OP_20` class and overriding its methods as needed.
+These features are implemented by extending the base `DeployableOP_20` or `OP_20` class and overriding its methods as
+needed.
 
 ---
 

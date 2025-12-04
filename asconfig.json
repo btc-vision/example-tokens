@@ -2,15 +2,23 @@
     "targets": {
         "token": {
             "outFile": "build/MyToken.wasm",
-            "use": [
-                "abort=src/token/index/abort"
-            ]
+            "use": ["abort=src/token/index/abort"]
+        },
+        "stablecoin": {
+            "outFile": "build/MyStableCoin.wasm",
+            "use": ["abort=src/stablecoin/index/abort"]
+        },
+        "peggedcoin": {
+            "outFile": "build/MyPeggedCoin.wasm",
+            "use": ["abort=src/pegged-token/index/abort"]
+        },
+        "oraclecoin": {
+            "outFile": "build/MyOracleCoin.wasm",
+            "use": ["abort=src/multi-oracle-stablecoin/index/abort"]
         },
         "nft": {
             "outFile": "build/MyNFT.wasm",
-            "use": [
-                "abort=src/nft/index/abort"
-            ]
+            "use": ["abort=src/nft/index/abort"]
         }
     },
     "options": {
