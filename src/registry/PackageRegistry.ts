@@ -24,24 +24,29 @@ import {
 } from '@btc-vision/btc-runtime/runtime';
 import { StoredMapU256 } from '@btc-vision/btc-runtime/runtime/storage/maps/StoredMapU256';
 import { AdvancedStoredString } from '@btc-vision/btc-runtime/runtime/storage/AdvancedStoredString';
-import { TransactionOutput } from '@btc-vision/btc-runtime/runtime/env/classes/UTXO';
 
 import {
+    PackagePriceChangedEvent,
     PackageRegisteredEvent,
     PackageTransferCancelledEvent,
     PackageTransferCompletedEvent,
     PackageTransferInitiatedEvent,
-    PackagePriceChangedEvent,
+    ScopePriceChangedEvent,
     ScopeRegisteredEvent,
     ScopeTransferCancelledEvent,
     ScopeTransferCompletedEvent,
     ScopeTransferInitiatedEvent,
-    ScopePriceChangedEvent,
     TreasuryAddressChangedEvent,
     VersionDeprecatedEvent,
     VersionPublishedEvent,
     VersionUndeprecatedEvent,
 } from './events/RegistryEvents';
+
+import {
+    MLDSA44_SIGNATURE_LEN,
+    MLDSA65_SIGNATURE_LEN,
+    MLDSA87_SIGNATURE_LEN,
+} from '@btc-vision/btc-runtime/runtime/env/consensus/MLDSAMetadata';
 
 import {
     DEFAULT_PACKAGE_PRICE_SATS,
@@ -52,10 +57,7 @@ import {
     MAX_REASON_LENGTH,
     MAX_SCOPE_LENGTH,
     MAX_VERSION_LENGTH,
-    MLDSA44_SIG_SIZE,
-    MLDSA65_SIG_SIZE,
-    MLDSA87_SIG_SIZE,
-    MUTABILITY_WINDOW,
+    MUTABILITY_WINDOW_BLOCKS,
     RESERVED_SCOPE,
 } from './constants';
 
@@ -113,8 +115,8 @@ export class PackageRegistry extends OP_NET {
     // Settings Storage
     // -------------------------------------------------------------------------
     private readonly treasuryAddress: StoredString;
-    private readonly scopePriceSats: StoredMapU256;      // Use map with key 0
-    private readonly packagePriceSats: StoredMapU256;    // Use map with key 0
+    private readonly scopePriceSats: StoredMapU256; // Use map with key 0
+    private readonly packagePriceSats: StoredMapU256; // Use map with key 0
 
     // -------------------------------------------------------------------------
     // Scope Storage Maps
@@ -208,14 +210,14 @@ export class PackageRegistry extends OP_NET {
 
         // Reserve @opnet scope for deployer
         const opnetScopeKey = this.getScopeKeyU256(RESERVED_SCOPE);
-        const timestamp = Blockchain.block.medianTimestamp;
+        const blockNumber = Blockchain.block.number;
         const deployer = Blockchain.tx.origin;
 
         this.scopeExists.set(opnetScopeKey, u256.One);
         this.scopeOwner.set(opnetScopeKey, this._addressToU256(deployer));
-        this.scopeCreated.set(opnetScopeKey, u256.fromU64(timestamp));
+        this.scopeCreated.set(opnetScopeKey, u256.fromU64(blockNumber));
 
-        this.emitEvent(new ScopeRegisteredEvent(opnetScopeKey, deployer, timestamp));
+        this.emitEvent(new ScopeRegisteredEvent(opnetScopeKey, deployer, blockNumber));
     }
 
     // =========================================================================
@@ -244,7 +246,11 @@ export class PackageRegistry extends OP_NET {
         this.treasuryAddress.value = newAddress;
 
         this.emitEvent(
-            new TreasuryAddressChangedEvent(oldAddressHash, newAddressHash, Blockchain.block.medianTimestamp),
+            new TreasuryAddressChangedEvent(
+                oldAddressHash,
+                newAddressHash,
+                Blockchain.block.number,
+            ),
         );
 
         return new BytesWriter(0);
@@ -264,7 +270,7 @@ export class PackageRegistry extends OP_NET {
 
         this.scopePriceSats.set(u256.Zero, u256.fromU64(newPrice));
 
-        this.emitEvent(new ScopePriceChangedEvent(oldPrice, newPrice, Blockchain.block.medianTimestamp));
+        this.emitEvent(new ScopePriceChangedEvent(oldPrice, newPrice, Blockchain.block.number));
 
         return new BytesWriter(0);
     }
@@ -283,7 +289,7 @@ export class PackageRegistry extends OP_NET {
 
         this.packagePriceSats.set(u256.Zero, u256.fromU64(newPrice));
 
-        this.emitEvent(new PackagePriceChangedEvent(oldPrice, newPrice, Blockchain.block.medianTimestamp));
+        this.emitEvent(new PackagePriceChangedEvent(oldPrice, newPrice, Blockchain.block.number));
 
         return new BytesWriter(0);
     }
@@ -320,14 +326,14 @@ export class PackageRegistry extends OP_NET {
         this.verifyPayment(this.scopePriceSats.get(u256.Zero).toU64());
 
         // Register scope
-        const timestamp = Blockchain.block.medianTimestamp;
+        const blockNumber = Blockchain.block.number;
         const sender = Blockchain.tx.sender;
 
         this.scopeExists.set(scopeKey, u256.One);
         this.scopeOwner.set(scopeKey, this._addressToU256(sender));
-        this.scopeCreated.set(scopeKey, u256.fromU64(timestamp));
+        this.scopeCreated.set(scopeKey, u256.fromU64(blockNumber));
 
-        this.emitEvent(new ScopeRegisteredEvent(scopeKey, sender, timestamp));
+        this.emitEvent(new ScopeRegisteredEvent(scopeKey, sender, blockNumber));
 
         return new BytesWriter(0);
     }
@@ -356,12 +362,12 @@ export class PackageRegistry extends OP_NET {
         }
 
         // Set pending transfer
-        const timestamp = Blockchain.block.medianTimestamp;
+        const blockNumber = Blockchain.block.number;
         this.scopePendingOwner.set(scopeKey, this._addressToU256(newOwner));
-        this.scopePendingTimestamp.set(scopeKey, u256.fromU64(timestamp));
+        this.scopePendingTimestamp.set(scopeKey, u256.fromU64(blockNumber));
 
         this.emitEvent(
-            new ScopeTransferInitiatedEvent(scopeKey, Blockchain.tx.sender, newOwner, timestamp),
+            new ScopeTransferInitiatedEvent(scopeKey, Blockchain.tx.sender, newOwner, blockNumber),
         );
 
         return new BytesWriter(0);
@@ -390,13 +396,15 @@ export class PackageRegistry extends OP_NET {
 
         // Complete transfer
         const previousOwner = this._u256ToAddress(this.scopeOwner.get(scopeKey));
-        const timestamp = Blockchain.block.medianTimestamp;
+        const blockNumber = Blockchain.block.number;
 
         this.scopeOwner.set(scopeKey, this._addressToU256(pendingOwner));
         this.scopePendingOwner.set(scopeKey, u256.Zero);
         this.scopePendingTimestamp.set(scopeKey, u256.Zero);
 
-        this.emitEvent(new ScopeTransferCompletedEvent(scopeKey, previousOwner, pendingOwner, timestamp));
+        this.emitEvent(
+            new ScopeTransferCompletedEvent(scopeKey, previousOwner, pendingOwner, blockNumber),
+        );
 
         return new BytesWriter(0);
     }
@@ -424,7 +432,11 @@ export class PackageRegistry extends OP_NET {
         this.scopePendingTimestamp.set(scopeKey, u256.Zero);
 
         this.emitEvent(
-            new ScopeTransferCancelledEvent(scopeKey, Blockchain.tx.sender, Blockchain.block.medianTimestamp),
+            new ScopeTransferCancelledEvent(
+                scopeKey,
+                Blockchain.tx.sender,
+                Blockchain.block.number,
+            ),
         );
 
         return new BytesWriter(0);
@@ -456,7 +468,7 @@ export class PackageRegistry extends OP_NET {
         }
 
         const sender = Blockchain.tx.sender;
-        const timestamp = Blockchain.block.medianTimestamp;
+        const blockNumber = Blockchain.block.number;
 
         // Check if scoped package
         if (this.isScoped(packageName)) {
@@ -481,10 +493,10 @@ export class PackageRegistry extends OP_NET {
         // Register package
         this.packageExists.set(packageKey, u256.One);
         this.packageOwner.set(packageKey, this._addressToU256(sender));
-        this.packageCreated.set(packageKey, u256.fromU64(timestamp));
+        this.packageCreated.set(packageKey, u256.fromU64(blockNumber));
         this.packageVersionCount.set(packageKey, u256.Zero);
 
-        this.emitEvent(new PackageRegisteredEvent(packageKey, sender, timestamp));
+        this.emitEvent(new PackageRegisteredEvent(packageKey, sender, blockNumber));
 
         return new BytesWriter(0);
     }
@@ -553,7 +565,7 @@ export class PackageRegistry extends OP_NET {
         }
 
         const sender = Blockchain.tx.sender;
-        const timestamp = Blockchain.block.medianTimestamp;
+        const blockNumber = Blockchain.block.number;
 
         // Store signature hash (signature too large for on-chain storage)
         const sigHash = u256.fromUint8ArrayBE(Blockchain.sha256(signature));
@@ -570,12 +582,16 @@ export class PackageRegistry extends OP_NET {
         this.versionPermHash.set(versionKey, permissionsHash);
         this.versionDepsHash.set(versionKey, depsHash);
         this.versionPublisher.set(versionKey, this._addressToU256(sender));
-        this.versionTimestamp.set(versionKey, u256.fromU64(timestamp));
+        this.versionTimestamp.set(versionKey, u256.fromU64(blockNumber));
         this.versionDeprecated.set(versionKey, u256.Zero);
 
         // Store variable-length strings using AdvancedStoredString
         const versionKeyBytes = this.getVersionKey(packageName, version);
-        const cidStorage = new AdvancedStoredString(versionIpfsCidPointer, versionKeyBytes, MAX_CID_LENGTH);
+        const cidStorage = new AdvancedStoredString(
+            versionIpfsCidPointer,
+            versionKeyBytes,
+            MAX_CID_LENGTH,
+        );
         cidStorage.value = ipfsCid;
 
         const rangeStorage = new AdvancedStoredString(
@@ -587,7 +603,11 @@ export class PackageRegistry extends OP_NET {
 
         // Store latest version for package
         const pkgKeyBytes = this.getPackageKey(packageName);
-        const latestStorage = new AdvancedStoredString(packageLatestVersionPointer, pkgKeyBytes, MAX_VERSION_LENGTH);
+        const latestStorage = new AdvancedStoredString(
+            packageLatestVersionPointer,
+            pkgKeyBytes,
+            MAX_VERSION_LENGTH,
+        );
         latestStorage.value = version;
 
         // Increment version count
@@ -600,7 +620,7 @@ export class PackageRegistry extends OP_NET {
                 versionKey,
                 sender,
                 checksum,
-                timestamp,
+                blockNumber,
                 mldsaLevel,
                 pluginType,
             ),
@@ -655,10 +675,14 @@ export class PackageRegistry extends OP_NET {
 
         // Store deprecation reason
         const versionKeyBytes = this.getVersionKey(packageName, version);
-        const reasonStorage = new AdvancedStoredString(versionDepReasonPointer, versionKeyBytes, MAX_REASON_LENGTH);
+        const reasonStorage = new AdvancedStoredString(
+            versionDepReasonPointer,
+            versionKeyBytes,
+            MAX_REASON_LENGTH,
+        );
         reasonStorage.value = reason;
 
-        this.emitEvent(new VersionDeprecatedEvent(packageKey, versionKey, Blockchain.block.medianTimestamp));
+        this.emitEvent(new VersionDeprecatedEvent(packageKey, versionKey, Blockchain.block.number));
 
         return new BytesWriter(0);
     }
@@ -707,10 +731,16 @@ export class PackageRegistry extends OP_NET {
 
         // Clear deprecation reason
         const versionKeyBytes = this.getVersionKey(packageName, version);
-        const reasonStorage = new AdvancedStoredString(versionDepReasonPointer, versionKeyBytes, MAX_REASON_LENGTH);
+        const reasonStorage = new AdvancedStoredString(
+            versionDepReasonPointer,
+            versionKeyBytes,
+            MAX_REASON_LENGTH,
+        );
         reasonStorage.value = '';
 
-        this.emitEvent(new VersionUndeprecatedEvent(packageKey, versionKey, Blockchain.block.medianTimestamp));
+        this.emitEvent(
+            new VersionUndeprecatedEvent(packageKey, versionKey, Blockchain.block.number),
+        );
 
         return new BytesWriter(0);
     }
@@ -739,12 +769,17 @@ export class PackageRegistry extends OP_NET {
         }
 
         // Set pending transfer
-        const timestamp = Blockchain.block.medianTimestamp;
+        const blockNumber = Blockchain.block.number;
         this.pkgPendingOwner.set(packageKey, this._addressToU256(newOwner));
-        this.pkgPendingTimestamp.set(packageKey, u256.fromU64(timestamp));
+        this.pkgPendingTimestamp.set(packageKey, u256.fromU64(blockNumber));
 
         this.emitEvent(
-            new PackageTransferInitiatedEvent(packageKey, Blockchain.tx.sender, newOwner, timestamp),
+            new PackageTransferInitiatedEvent(
+                packageKey,
+                Blockchain.tx.sender,
+                newOwner,
+                blockNumber,
+            ),
         );
 
         return new BytesWriter(0);
@@ -773,14 +808,14 @@ export class PackageRegistry extends OP_NET {
 
         // Complete transfer
         const previousOwner = this._u256ToAddress(this.packageOwner.get(packageKey));
-        const timestamp = Blockchain.block.medianTimestamp;
+        const blockNumber = Blockchain.block.number;
 
         this.packageOwner.set(packageKey, this._addressToU256(pendingOwner));
         this.pkgPendingOwner.set(packageKey, u256.Zero);
         this.pkgPendingTimestamp.set(packageKey, u256.Zero);
 
         this.emitEvent(
-            new PackageTransferCompletedEvent(packageKey, previousOwner, pendingOwner, timestamp),
+            new PackageTransferCompletedEvent(packageKey, previousOwner, pendingOwner, blockNumber),
         );
 
         return new BytesWriter(0);
@@ -809,7 +844,11 @@ export class PackageRegistry extends OP_NET {
         this.pkgPendingTimestamp.set(packageKey, u256.Zero);
 
         this.emitEvent(
-            new PackageTransferCancelledEvent(packageKey, Blockchain.tx.sender, Blockchain.block.medianTimestamp),
+            new PackageTransferCancelledEvent(
+                packageKey,
+                Blockchain.tx.sender,
+                Blockchain.block.number,
+            ),
         );
 
         return new BytesWriter(0);
@@ -881,13 +920,19 @@ export class PackageRegistry extends OP_NET {
         const pkgKeyBytes = this.getPackageKey(packageName);
 
         const exists = !this.packageExists.get(packageKey).isZero();
-        const owner = exists ? this._u256ToAddress(this.packageOwner.get(packageKey)) : Address.zero();
+        const owner = exists
+            ? this._u256ToAddress(this.packageOwner.get(packageKey))
+            : Address.zero();
         const createdAt = exists ? this.packageCreated.get(packageKey).toU64() : <u64>0;
         const versionCount = exists ? this.packageVersionCount.get(packageKey) : u256.Zero;
 
         let latestVersion = '';
         if (exists) {
-            const latestStorage = new AdvancedStoredString(packageLatestVersionPointer, pkgKeyBytes, 32);
+            const latestStorage = new AdvancedStoredString(
+                packageLatestVersionPointer,
+                pkgKeyBytes,
+                32,
+            );
             latestVersion = latestStorage.value;
         }
 
@@ -968,10 +1013,18 @@ export class PackageRegistry extends OP_NET {
         const publishedAt = this.versionTimestamp.get(versionKey).toU64();
         const deprecated = !this.versionDeprecated.get(versionKey).isZero();
 
-        const cidStorage = new AdvancedStoredString(versionIpfsCidPointer, versionKeyBytes, MAX_CID_LENGTH);
+        const cidStorage = new AdvancedStoredString(
+            versionIpfsCidPointer,
+            versionKeyBytes,
+            MAX_CID_LENGTH,
+        );
         const ipfsCid = cidStorage.value;
 
-        const rangeStorage = new AdvancedStoredString(versionOpnetRangePointer, versionKeyBytes, MAX_OPNET_RANGE_LENGTH);
+        const rangeStorage = new AdvancedStoredString(
+            versionOpnetRangePointer,
+            versionKeyBytes,
+            MAX_OPNET_RANGE_LENGTH,
+        );
         const opnetVersionRange = rangeStorage.value;
 
         // Calculate response size
@@ -980,17 +1033,19 @@ export class PackageRegistry extends OP_NET {
 
         const response = new BytesWriter(
             1 + // exists
-            4 + cidBytes.length + // ipfsCid
-            32 + // checksum
-            32 + // sigHash
-            1 + // mldsaLevel
-            4 + rangeBytes.length + // opnetVersionRange
-            1 + // pluginType
-            32 + // permissionsHash
-            32 + // depsHash
-            32 + // publisher
-            8 + // publishedAt
-            1, // deprecated
+                4 +
+                cidBytes.length + // ipfsCid
+                32 + // checksum
+                32 + // sigHash
+                1 + // mldsaLevel
+                4 +
+                rangeBytes.length + // opnetVersionRange
+                1 + // pluginType
+                32 + // permissionsHash
+                32 + // depsHash
+                32 + // publisher
+                8 + // publishedAt
+                1, // deprecated
         );
 
         response.writeBoolean(exists);
@@ -1154,6 +1209,24 @@ export class PackageRegistry extends OP_NET {
     // INTERNAL HELPERS
     // =========================================================================
 
+    /**
+     * Convert Address to u256 for storage.
+     */
+    protected _addressToU256(addr: Address): u256 {
+        return u256.fromUint8ArrayBE(addr);
+    }
+
+    /**
+     * Convert u256 to Address.
+     */
+    protected _u256ToAddress(val: u256): Address {
+        if (val.isZero()) {
+            return Address.zero();
+        }
+        const bytes = val.toUint8Array(true);
+        return Address.fromUint8Array(bytes);
+    }
+
     private getScopeKeyU256(scopeName: string): u256 {
         const bytes = Uint8Array.wrap(String.UTF8.encode(scopeName));
         return u256.fromUint8ArrayBE(Blockchain.sha256(bytes));
@@ -1300,10 +1373,7 @@ export class PackageRegistry extends OP_NET {
         const isV0 = cid.charCodeAt(0) == 81 && cid.charCodeAt(1) == 109; // "Qm"
 
         // CIDv1: starts with "baf" (base32, covers bafy, bafk, bafz, etc.)
-        const isV1 =
-            cid.charCodeAt(0) == 98 &&
-            cid.charCodeAt(1) == 97 &&
-            cid.charCodeAt(2) == 102; // "baf"
+        const isV1 = cid.charCodeAt(0) == 98 && cid.charCodeAt(1) == 97 && cid.charCodeAt(2) == 102; // "baf"
 
         if (!isV0 && !isV1) {
             throw new Revert('CID must start with Qm or baf');
@@ -1398,7 +1468,15 @@ export class PackageRegistry extends OP_NET {
             const isWildcard = c == 120 || c == 42; // x *
             const isHyphen = c == 45;
 
-            if (!isDigit && !isDot && !isSpace && !isCompare && !isLogical && !isWildcard && !isHyphen) {
+            if (
+                !isDigit &&
+                !isDot &&
+                !isSpace &&
+                !isCompare &&
+                !isLogical &&
+                !isWildcard &&
+                !isHyphen
+            ) {
                 throw new Revert('Invalid character in OPNet range');
             }
         }
@@ -1417,14 +1495,18 @@ export class PackageRegistry extends OP_NET {
         }
 
         // Must start with bc1p (taproot) or bc1q (segwit)
-        if (address.charCodeAt(0) != 98 || // 'b'
+        if (
+            address.charCodeAt(0) != 98 || // 'b'
             address.charCodeAt(1) != 99 || // 'c'
-            address.charCodeAt(2) != 49) { // '1'
+            address.charCodeAt(2) != 49
+        ) {
+            // '1'
             throw new Revert('Treasury address must start with bc1');
         }
 
         const fourth = address.charCodeAt(3);
-        if (fourth != 112 && fourth != 113) { // 'p' or 'q'
+        if (fourth != 112 && fourth != 113) {
+            // 'p' or 'q'
             throw new Revert('Treasury address must be bc1p or bc1q');
         }
 
@@ -1458,11 +1540,11 @@ export class PackageRegistry extends OP_NET {
         let expectedLen: u32;
 
         if (mldsaLevel == 1) {
-            expectedLen = MLDSA44_SIG_SIZE;
+            expectedLen = MLDSA44_SIGNATURE_LEN;
         } else if (mldsaLevel == 2) {
-            expectedLen = MLDSA65_SIG_SIZE;
+            expectedLen = MLDSA65_SIGNATURE_LEN;
         } else if (mldsaLevel == 3) {
-            expectedLen = MLDSA87_SIG_SIZE;
+            expectedLen = MLDSA87_SIGNATURE_LEN;
         } else {
             throw new Revert('Invalid MLDSA level');
         }
@@ -1473,11 +1555,11 @@ export class PackageRegistry extends OP_NET {
     }
 
     /**
-     * Check if timestamp is within 72-hour mutability window.
+     * Check if block number is within 72-hour mutability window (~432 blocks).
      */
-    private isWithinMutabilityWindow(publishTime: u64): boolean {
-        const currentTime = Blockchain.block.medianTimestamp;
-        return currentTime <= publishTime + MUTABILITY_WINDOW;
+    private isWithinMutabilityWindow(publishBlock: u64): boolean {
+        const currentBlock = Blockchain.block.number;
+        return currentBlock <= publishBlock + MUTABILITY_WINDOW_BLOCKS;
     }
 
     /**
@@ -1525,23 +1607,5 @@ export class PackageRegistry extends OP_NET {
         if (!Blockchain.tx.sender.equals(owner)) {
             throw new Revert('Not package owner');
         }
-    }
-
-    /**
-     * Convert Address to u256 for storage.
-     */
-    protected _addressToU256(addr: Address): u256 {
-        return u256.fromUint8ArrayBE(addr);
-    }
-
-    /**
-     * Convert u256 to Address.
-     */
-    protected _u256ToAddress(val: u256): Address {
-        if (val.isZero()) {
-            return Address.zero();
-        }
-        const bytes = val.toUint8Array(true);
-        return Address.fromUint8Array(bytes);
     }
 }

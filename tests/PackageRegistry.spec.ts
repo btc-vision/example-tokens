@@ -7,17 +7,22 @@ import {
     MAX_REASON_LENGTH,
     MAX_SCOPE_LENGTH,
     MAX_VERSION_LENGTH,
-    MLDSA44,
-    MLDSA44_SIG_SIZE,
-    MLDSA65,
-    MLDSA65_SIG_SIZE,
-    MLDSA87,
-    MLDSA87_SIG_SIZE,
-    MUTABILITY_WINDOW,
+    MUTABILITY_WINDOW_BLOCKS,
     PLUGIN_LIBRARY,
     PLUGIN_STANDALONE,
     RESERVED_SCOPE,
 } from '../src/registry/constants';
+
+import {
+    MLDSA44_SIGNATURE_LEN,
+    MLDSA65_SIGNATURE_LEN,
+    MLDSA87_SIGNATURE_LEN,
+} from '@btc-vision/btc-runtime/runtime/env/consensus/MLDSAMetadata';
+
+// MLDSA security levels
+const MLDSA44: u8 = 1;
+const MLDSA65: u8 = 2;
+const MLDSA87: u8 = 3;
 
 /**
  * PackageRegistry Unit Tests
@@ -42,10 +47,10 @@ describe('Constants', () => {
             expect(MLDSA87).toBe(3);
         });
 
-        it('should have correct MLDSA signature sizes', () => {
-            expect(MLDSA44_SIG_SIZE).toBe(2420);
-            expect(MLDSA65_SIG_SIZE).toBe(3309);
-            expect(MLDSA87_SIG_SIZE).toBe(4627);
+        it('should have correct MLDSA signature lengths', () => {
+            expect(MLDSA44_SIGNATURE_LEN).toBe(2420);
+            expect(MLDSA65_SIGNATURE_LEN).toBe(3309);
+            expect(MLDSA87_SIGNATURE_LEN).toBe(4627);
         });
     });
 
@@ -67,16 +72,16 @@ describe('Constants', () => {
         });
     });
 
-    describe('Time Constants', () => {
-        it('should have correct mutability window (72 hours)', () => {
-            expect(MUTABILITY_WINDOW).toBe(259200); // 72 * 60 * 60
+    describe('Block Constants', () => {
+        it('should have correct mutability window in blocks (~72 hours)', () => {
+            expect(MUTABILITY_WINDOW_BLOCKS).toBe(432); // ~432 blocks at 10 min/block
         });
     });
 
     describe('Pricing', () => {
         it('should have correct default pricing', () => {
             expect(DEFAULT_PACKAGE_PRICE_SATS).toBe(10000);
-            expect(DEFAULT_SCOPE_PRICE_SATS).toBe(5000000);
+            expect(DEFAULT_SCOPE_PRICE_SATS).toBe(50000);
         });
     });
 
@@ -264,9 +269,9 @@ function validateTreasuryAddress(address: string): bool {
  * Validate signature length matches MLDSA level
  */
 function validateSignatureLength(sigLen: u32, mldsaLevel: u8): bool {
-    if (mldsaLevel == 1) return sigLen == MLDSA44_SIG_SIZE;
-    if (mldsaLevel == 2) return sigLen == MLDSA65_SIG_SIZE;
-    if (mldsaLevel == 3) return sigLen == MLDSA87_SIG_SIZE;
+    if (mldsaLevel == 1) return sigLen == MLDSA44_SIGNATURE_LEN;
+    if (mldsaLevel == 2) return sigLen == MLDSA65_SIGNATURE_LEN;
+    if (mldsaLevel == 3) return sigLen == MLDSA87_SIGNATURE_LEN;
     return false;
 }
 
@@ -707,7 +712,7 @@ describe('Package Registry Flow Validation', () => {
             expect(mldsaLevel >= 1 && mldsaLevel <= 3).toBe(true);
             expect(validateOpnetVersionRange(opnetRange)).toBe(true);
             expect(pluginType >= 1 && pluginType <= 2).toBe(true);
-            expect(validateSignatureLength(MLDSA65_SIG_SIZE, mldsaLevel)).toBe(true);
+            expect(validateSignatureLength(MLDSA65_SIGNATURE_LEN, mldsaLevel)).toBe(true);
         });
     });
 
