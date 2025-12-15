@@ -226,7 +226,7 @@ export class PackageRegistry extends OP_NET {
      * Set the treasury address for receiving payments.
      * @param calldata Contains the new treasury address as a string.
      */
-    @method({ name: 'address', type: ABIDataTypes.STRING })
+    @method({ name: 'treasuryAddress', type: ABIDataTypes.STRING })
     @emit('TreasuryAddressChanged')
     public setTreasuryAddress(calldata: Calldata): BytesWriter {
         this.onlyDeployer(Blockchain.tx.sender);
@@ -587,7 +587,7 @@ export class PackageRegistry extends OP_NET {
 
         // Store latest version for package
         const pkgKeyBytes = this.getPackageKey(packageName);
-        const latestStorage = new AdvancedStoredString(packageLatestVersionPointer, pkgKeyBytes, 32);
+        const latestStorage = new AdvancedStoredString(packageLatestVersionPointer, pkgKeyBytes, MAX_VERSION_LENGTH);
         latestStorage.value = version;
 
         // Increment version count
@@ -1209,7 +1209,9 @@ export class PackageRegistry extends OP_NET {
      */
     private extractScope(packageName: string): string {
         const slashIdx = packageName.indexOf('/');
-        if (slashIdx < 2) {
+        // slashIdx must be >= 2 (at least 1 char for scope after @)
+        // and not at the end (must have package name after /)
+        if (slashIdx < 2 || slashIdx >= packageName.length - 1) {
             throw new Revert('Invalid scoped package format');
         }
         return packageName.substring(1, slashIdx);
@@ -1289,20 +1291,22 @@ export class PackageRegistry extends OP_NET {
      * Validate IPFS CID format.
      */
     private validateIpfsCid(cid: string): void {
-        if (cid.length < 2) {
-            throw new Revert('Invalid IPFS CID');
+        const len = cid.length;
+        if (len < 46 || len > <i32>MAX_CID_LENGTH) {
+            throw new Revert('CID must be 46-128 characters');
         }
 
+        // CIDv0: starts with "Qm" (base58btc, 46 chars)
         const isV0 = cid.charCodeAt(0) == 81 && cid.charCodeAt(1) == 109; // "Qm"
+
+        // CIDv1: starts with "baf" (base32, covers bafy, bafk, bafz, etc.)
         const isV1 =
-            cid.length >= 4 &&
             cid.charCodeAt(0) == 98 &&
             cid.charCodeAt(1) == 97 &&
-            cid.charCodeAt(2) == 102 &&
-            cid.charCodeAt(3) == 121; // "bafy"
+            cid.charCodeAt(2) == 102; // "baf"
 
         if (!isV0 && !isV1) {
-            throw new Revert('CID must start with Qm or bafy');
+            throw new Revert('CID must start with Qm or baf');
         }
     }
 
@@ -1331,7 +1335,6 @@ export class PackageRegistry extends OP_NET {
             const isDot = c == 46; // '.'
             const isDigit = c >= 48 && c <= 57;
             const isHyphen = c == 45; // '-' for pre-release
-            const isLowerAlpha = c >= 97 && c <= 122;
 
             // After hyphen, we're in pre-release - allow alphanumeric and dots
             if (isHyphen) {

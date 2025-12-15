@@ -144,15 +144,14 @@ function isScoped(packageName: string): bool {
  * Validate IPFS CID format
  */
 function validateIpfsCid(cid: string): bool {
-    if (cid.length < 2) return false;
+    const len = cid.length;
+    if (len < 46 || len > <i32>MAX_CID_LENGTH) return false;
 
-    const isV0 = cid.charCodeAt(0) == 81 && cid.charCodeAt(1) == 109; // "Qm"
-    const isV1 =
-        cid.length >= 4 &&
-        cid.charCodeAt(0) == 98 &&
-        cid.charCodeAt(1) == 97 &&
-        cid.charCodeAt(2) == 102 &&
-        cid.charCodeAt(3) == 121; // "bafy"
+    // CIDv0: starts with "Qm"
+    const isV0 = cid.charCodeAt(0) == 81 && cid.charCodeAt(1) == 109;
+
+    // CIDv1: starts with "baf" (covers bafy, bafk, bafz, etc.)
+    const isV1 = cid.charCodeAt(0) == 98 && cid.charCodeAt(1) == 97 && cid.charCodeAt(2) == 102;
 
     return isV0 || isV1;
 }
@@ -432,6 +431,13 @@ describe('IPFS CID Validation', () => {
                 validateIpfsCid('bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi'),
             ).toBe(true);
         });
+
+        it('should accept CIDv1 with other codecs (bafk...)', () => {
+            // bafk is CIDv1 with raw codec - 59 chars is valid
+            expect(
+                validateIpfsCid('bafkreigaknpexyvxt76zgkitavbwx6ejgfheup5oybpm77f3pxzrvwpfdi'),
+            ).toBe(true);
+        });
     });
 
     describe('Invalid CIDs', () => {
@@ -439,15 +445,21 @@ describe('IPFS CID Validation', () => {
             expect(validateIpfsCid('')).toBe(false);
         });
 
-        it('should reject CIDs not starting with Qm or bafy', () => {
+        it('should reject CIDs too short (< 46 chars)', () => {
+            expect(validateIpfsCid('QmShort')).toBe(false);
+            expect(validateIpfsCid('bafyshort')).toBe(false);
+        });
+
+        it('should reject CIDs not starting with Qm or baf', () => {
+            // zdj is base58btc CIDv1 - not supported
             expect(validateIpfsCid('zdj7Wn9FQAURCP6MbwcWuzi7u65kAsXCdjNTkhbJcoaXBusq9')).toBe(
                 false,
             );
-            expect(validateIpfsCid('abc123')).toBe(false);
         });
 
-        it('should reject single character', () => {
-            expect(validateIpfsCid('Q')).toBe(false);
+        it('should reject invalid prefixes with valid length', () => {
+            // 46 chars but wrong prefix
+            expect(validateIpfsCid('abcdefghijklmnopqrstuvwxyz12345678901234567890')).toBe(false);
         });
     });
 });
@@ -626,7 +638,8 @@ describe('Edge Cases', () => {
             expect(validateVersionString('0.0.0')).toBe(true);
         });
 
-        it('should handle minimum valid CID (Qm + 44 chars)', () => {
+        it('should handle minimum valid CID (46 chars)', () => {
+            // CIDv0 is exactly 46 characters
             expect(validateIpfsCid('QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG')).toBe(true);
         });
     });

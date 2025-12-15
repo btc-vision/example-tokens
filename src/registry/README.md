@@ -142,7 +142,8 @@ dependencies: Uint8Array   // Encoded dependency array
   - Pattern: `[a-z][a-z0-9-]*`, max 64 characters
 
 ### IPFS CIDs
-- Must start with `Qm` (CIDv0) or `bafy` (CIDv1)
+- Must start with `Qm` (CIDv0) or `baf` (CIDv1 - covers bafy, bafk, bafz, etc.)
+- Length: 46-128 characters
 
 ### MLDSA Levels
 - `1` = MLDSA-44 (~128-bit security)
