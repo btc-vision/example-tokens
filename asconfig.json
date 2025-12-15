@@ -19,6 +19,10 @@
         "nft": {
             "outFile": "build/MyNFT.wasm",
             "use": ["abort=src/nft/index/abort"]
+        },
+        "registry": {
+            "outFile": "build/PackageRegistry.wasm",
+            "use": ["abort=src/registry/index/abort"]
         }
     },
     "options": {
