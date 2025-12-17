@@ -23,6 +23,10 @@
         "registry": {
             "outFile": "build/PackageRegistry.wasm",
             "use": ["abort=src/registry/index/abort"]
+        },
+        "btc-resolver": {
+            "outFile": "build/Resolver.wasm",
+            "use": ["abort=src/btc-resolver/index/abort"]
         }
     },
     "options": {
