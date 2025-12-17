@@ -1558,7 +1558,8 @@ export class PackageRegistry extends OP_NET {
      * Check if block number is within 72-hour mutability window (~432 blocks).
      */
     private isWithinMutabilityWindow(publishBlock: u64): boolean {
-        return Blockchain.block.number <= publishBlock + MUTABILITY_WINDOW_BLOCKS;
+        const currentBlock = Blockchain.block.number;
+        return currentBlock <= publishBlock + MUTABILITY_WINDOW_BLOCKS;
     }
 
     /**
