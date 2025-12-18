@@ -70,7 +70,6 @@ import {
     PREMIUM_TIER_5_DOMAINS,
     PREMIUM_TIER_5_PRICE_SATS,
     PREMIUM_TIER_6_DOMAINS,
-    PREMIUM_TIER_6_PRICE_SATS,
     RESERVED_DOMAIN,
 } from './constants';
 
@@ -1247,7 +1246,7 @@ export class BtcNameResolver extends OP_NET {
             return PREMIUM_TIER_0_PRICE_SATS;
         }
 
-        // 1-char domains are always Tier 1 (1 BTC) - most valuable
+        // 1-char domains are always Tier 1 (1.5 BTC) - most valuable
         if (len == 1) {
             return PREMIUM_TIER_1_PRICE_SATS;
         }
@@ -1266,8 +1265,16 @@ export class BtcNameResolver extends OP_NET {
             return PREMIUM_TIER_2_PRICE_SATS;
         }
 
+        if (len == 3) {
+            return PREMIUM_TIER_3_PRICE_SATS;
+        }
+
         if (this.isInPremiumList(lowerName, PREMIUM_TIER_3_DOMAINS)) {
             return PREMIUM_TIER_3_PRICE_SATS;
+        }
+
+        if (len == 4) {
+            return PREMIUM_TIER_4_PRICE_SATS;
         }
 
         if (this.isInPremiumList(lowerName, PREMIUM_TIER_4_DOMAINS)) {
@@ -1275,19 +1282,14 @@ export class BtcNameResolver extends OP_NET {
         }
 
         if (this.isInPremiumList(lowerName, PREMIUM_TIER_5_DOMAINS)) {
-            return PREMIUM_TIER_5_PRICE_SATS;
+            return PREMIUM_TIER_4_PRICE_SATS;
         }
 
         if (this.isInPremiumList(lowerName, PREMIUM_TIER_6_DOMAINS)) {
-            return PREMIUM_TIER_6_PRICE_SATS;
+            return PREMIUM_TIER_4_PRICE_SATS;
         }
 
-        // Length-based pricing for non-premium keywords
-        if (len == 3) {
-            return PREMIUM_TIER_3_PRICE_SATS;
-        } else if (len == 4) {
-            return PREMIUM_TIER_4_PRICE_SATS;
-        } else if (len == 5) {
+        if (len == 5) {
             return PREMIUM_TIER_5_PRICE_SATS;
         }
 
