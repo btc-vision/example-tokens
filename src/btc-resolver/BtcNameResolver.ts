@@ -14,13 +14,17 @@
 import { u256 } from '@btc-vision/as-bignum/assembly';
 import {
     Address,
+    ADDRESS_BYTE_LENGTH,
     Blockchain,
     BytesWriter,
     Calldata,
+    ExtendedAddress,
     OP_NET,
     Revert,
     SafeMath,
     StoredString,
+    U64_BYTE_LENGTH,
+    U256_BYTE_LENGTH,
 } from '@btc-vision/btc-runtime/runtime';
 import { StoredMapU256 } from '@btc-vision/btc-runtime/runtime/storage/maps/StoredMapU256';
 import { AdvancedStoredString } from '@btc-vision/btc-runtime/runtime/storage/AdvancedStoredString';
@@ -52,8 +56,20 @@ import {
     MAX_TTL,
     MIN_DOMAIN_LENGTH,
     MIN_TTL,
-    PREMIUM_3_CHAR_PRICE_SATS,
-    PREMIUM_4_CHAR_PRICE_SATS,
+    PREMIUM_TIER_0_PRICE_SATS,
+    PREMIUM_TIER_1_PRICE_SATS,
+    PREMIUM_TIER_2_PRICE_SATS,
+    PREMIUM_TIER_3_PRICE_SATS,
+    PREMIUM_TIER_4_PRICE_SATS,
+    PREMIUM_TIER_5_PRICE_SATS,
+    PREMIUM_TIER_6_PRICE_SATS,
+    PREMIUM_TIER_0_DOMAINS,
+    PREMIUM_TIER_1_DOMAINS,
+    PREMIUM_TIER_2_DOMAINS,
+    PREMIUM_TIER_3_DOMAINS,
+    PREMIUM_TIER_4_DOMAINS,
+    PREMIUM_TIER_5_DOMAINS,
+    PREMIUM_TIER_6_DOMAINS,
     RESERVED_DOMAIN,
 } from './constants';
 
@@ -379,6 +395,144 @@ export class BtcNameResolver extends OP_NET {
                 Blockchain.tx.sender,
                 Blockchain.block.number,
             ),
+        );
+
+        return new BytesWriter(0);
+    }
+
+    /**
+     * Direct transfer of domain ownership (single transaction).
+     * Owner can directly transfer without requiring recipient acceptance.
+     */
+    @method(
+        { name: 'domainName', type: ABIDataTypes.STRING },
+        { name: 'newOwner', type: ABIDataTypes.ADDRESS },
+    )
+    @emit('DomainTransferCompleted')
+    public transferDomain(calldata: Calldata): BytesWriter {
+        const domainName = calldata.readStringWithLength();
+        const newOwner = calldata.readAddress();
+
+        const domainKey = this.getDomainKeyU256(domainName);
+
+        // Verify caller is owner
+        this.requireDomainOwner(domainKey);
+
+        // Validate new owner
+        if (newOwner.equals(Address.zero())) {
+            throw new Revert('Invalid new owner');
+        }
+
+        // Cannot transfer to self
+        if (newOwner.equals(Blockchain.tx.sender)) {
+            throw new Revert('Cannot transfer to self');
+        }
+
+        // Get current owner for event
+        const previousOwner = this._u256ToAddress(this.domainOwner.get(domainKey));
+        const blockNumber = Blockchain.block.number;
+
+        // Clear any pending transfer
+        this.domainPendingOwner.set(domainKey, u256.Zero);
+        this.domainPendingTimestamp.set(domainKey, u256.Zero);
+
+        // Transfer ownership
+        this.domainOwner.set(domainKey, this._addressToU256(newOwner));
+
+        this.emitEvent(
+            new DomainTransferCompletedEvent(domainKey, previousOwner, newOwner, blockNumber),
+        );
+
+        return new BytesWriter(0);
+    }
+
+    /**
+     * Transfer domain ownership via signature (gasless transfer).
+     * Allows owner to sign a transfer message off-chain for a third party to execute.
+     * @param ownerAddress - Current owner's address (32 bytes)
+     * @param ownerTweakedPublicKey - Owner's tweaked public key for signature verification
+     * @param domainName - Domain to transfer
+     * @param newOwner - Recipient address
+     * @param deadline - Block number deadline for signature validity
+     * @param signature - 64-byte Schnorr signature
+     */
+    @method(
+        { name: 'ownerAddress', type: ABIDataTypes.BYTES32 },
+        { name: 'ownerTweakedPublicKey', type: ABIDataTypes.BYTES32 },
+        { name: 'domainName', type: ABIDataTypes.STRING },
+        { name: 'newOwner', type: ABIDataTypes.ADDRESS },
+        { name: 'deadline', type: ABIDataTypes.UINT64 },
+        { name: 'signature', type: ABIDataTypes.BYTES },
+    )
+    @emit('DomainTransferCompleted')
+    public transferDomainBySignature(calldata: Calldata): BytesWriter {
+        const ownerAddressBytes = calldata.readBytesArray(ADDRESS_BYTE_LENGTH);
+        const ownerTweakedPublicKey = calldata.readBytesArray(ADDRESS_BYTE_LENGTH);
+
+        const owner = new ExtendedAddress(ownerTweakedPublicKey, ownerAddressBytes);
+
+        const domainName = calldata.readStringWithLength();
+        const newOwner = calldata.readAddress();
+        const deadline = calldata.readU64();
+        const signature = calldata.readBytesWithLength();
+
+        // Check signature length (Schnorr = 64 bytes)
+        if (signature.length !== 64) {
+            throw new Revert('Invalid signature length');
+        }
+
+        // Check deadline
+        if (Blockchain.block.number > deadline) {
+            throw new Revert('Signature expired');
+        }
+
+        const domainKey = this.getDomainKeyU256(domainName);
+
+        // Verify domain exists
+        if (this.domainExists.get(domainKey).isZero()) {
+            throw new Revert('Domain does not exist');
+        }
+
+        // Verify the provided owner address matches the domain owner
+        const storedOwner = this._u256ToAddress(this.domainOwner.get(domainKey));
+        if (!storedOwner.equals(owner)) {
+            throw new Revert('Not domain owner');
+        }
+
+        // Validate new owner
+        if (newOwner.equals(Address.zero())) {
+            throw new Revert('Invalid new owner');
+        }
+
+        if (newOwner.equals(storedOwner)) {
+            throw new Revert('Cannot transfer to self');
+        }
+
+        // Build message hash for signature verification
+        // Structure: sha256(domainKey + newOwner + deadline)
+        const messageData = new BytesWriter(U256_BYTE_LENGTH + ADDRESS_BYTE_LENGTH + U64_BYTE_LENGTH);
+        messageData.writeU256(domainKey);
+        messageData.writeAddress(newOwner);
+        messageData.writeU64(deadline);
+
+        const messageHash = Blockchain.sha256(messageData.getBuffer());
+
+        // Verify signature
+        if (!Blockchain.verifySignature(owner, signature, messageHash)) {
+            throw new Revert('Invalid signature');
+        }
+
+        const blockNumber = Blockchain.block.number;
+
+        // Clear any pending transfer
+        this.domainPendingOwner.set(domainKey, u256.Zero);
+        this.domainPendingTimestamp.set(domainKey, u256.Zero);
+
+        // Transfer ownership
+        this.domainOwner.set(domainKey, this._addressToU256(newOwner));
+
+        this.emitEvent(
+            new DomainTransferCompletedEvent(domainKey, storedOwner, newOwner, blockNumber),
         );
 
         return new BytesWriter(0);
@@ -966,7 +1120,7 @@ export class BtcNameResolver extends OP_NET {
     private validateDomainName(domain: string): void {
         const len = domain.length;
         if (len < <i32>MIN_DOMAIN_LENGTH || len > <i32>MAX_DOMAIN_LENGTH) {
-            throw new Revert('Domain must be 3-63 characters');
+            throw new Revert('Domain must be 1-63 characters');
         }
 
         // Must start with alphanumeric
@@ -1084,15 +1238,69 @@ export class BtcNameResolver extends OP_NET {
     }
 
     private calculateDomainPrice(domainName: string): u64 {
-        const len = domainName.length;
+        const lowerName = this.toLowerCase(domainName);
+        const len = lowerName.length;
         const basePrice = this.domainPriceSats.get(u256.Zero).toU64();
 
-        if (len == 3) {
-            return PREMIUM_3_CHAR_PRICE_SATS;
-        } else if (len == 4) {
-            return PREMIUM_4_CHAR_PRICE_SATS;
+        // Check TIER 0 first - Ultra Legendary (10 BTC)
+        if (this.isInPremiumList(lowerName, PREMIUM_TIER_0_DOMAINS)) {
+            return PREMIUM_TIER_0_PRICE_SATS;
         }
+
+        // 1-char domains are always Tier 1 (1 BTC) - most valuable
+        if (len == 1) {
+            return PREMIUM_TIER_1_PRICE_SATS;
+        }
+
+        // 2-char domains are always Tier 2 (0.25 BTC)
+        if (len == 2) {
+            return PREMIUM_TIER_2_PRICE_SATS;
+        }
+
+        // Check premium keyword lists (highest tier match wins)
+        if (this.isInPremiumList(lowerName, PREMIUM_TIER_1_DOMAINS)) {
+            return PREMIUM_TIER_1_PRICE_SATS;
+        }
+
+        if (this.isInPremiumList(lowerName, PREMIUM_TIER_2_DOMAINS)) {
+            return PREMIUM_TIER_2_PRICE_SATS;
+        }
+
+        if (this.isInPremiumList(lowerName, PREMIUM_TIER_3_DOMAINS)) {
+            return PREMIUM_TIER_3_PRICE_SATS;
+        }
+
+        if (this.isInPremiumList(lowerName, PREMIUM_TIER_4_DOMAINS)) {
+            return PREMIUM_TIER_4_PRICE_SATS;
+        }
+
+        if (this.isInPremiumList(lowerName, PREMIUM_TIER_5_DOMAINS)) {
+            return PREMIUM_TIER_5_PRICE_SATS;
+        }
+
+        if (this.isInPremiumList(lowerName, PREMIUM_TIER_6_DOMAINS)) {
+            return PREMIUM_TIER_6_PRICE_SATS;
+        }
+
+        // Length-based pricing for non-premium keywords
+        if (len == 3) {
+            return PREMIUM_TIER_3_PRICE_SATS;
+        } else if (len == 4) {
+            return PREMIUM_TIER_4_PRICE_SATS;
+        } else if (len == 5) {
+            return PREMIUM_TIER_5_PRICE_SATS;
+        }
+
         return basePrice;
+    }
+
+    private isInPremiumList(domainName: string, premiumList: string[]): boolean {
+        for (let i: i32 = 0; i < premiumList.length; i++) {
+            if (domainName == premiumList[i]) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private verifyPayment(requiredSats: u64): void {
