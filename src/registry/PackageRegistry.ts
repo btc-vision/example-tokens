@@ -1566,6 +1566,10 @@ export class PackageRegistry extends OP_NET {
      * Verify payment to treasury address.
      */
     private verifyPayment(requiredSats: u64): void {
+        if (!Blockchain.tx.origin.equals(Blockchain.tx.sender)) {
+            throw new Revert('Contracts not allowed.');
+        }
+
         const treasuryAddr = this.treasuryAddress.value;
         let totalPaid: u64 = 0;
 

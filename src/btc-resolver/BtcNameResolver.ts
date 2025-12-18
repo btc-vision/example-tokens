@@ -23,8 +23,8 @@ import {
     Revert,
     SafeMath,
     StoredString,
-    U64_BYTE_LENGTH,
     U256_BYTE_LENGTH,
+    U64_BYTE_LENGTH,
 } from '@btc-vision/btc-runtime/runtime';
 import { StoredMapU256 } from '@btc-vision/btc-runtime/runtime/storage/maps/StoredMapU256';
 import { AdvancedStoredString } from '@btc-vision/btc-runtime/runtime/storage/AdvancedStoredString';
@@ -52,24 +52,25 @@ import {
     DEFAULT_TTL,
     MAX_CONTENTHASH_LENGTH,
     MAX_DOMAIN_LENGTH,
+    MAX_FULL_NAME_LENGTH,
     MAX_SUBDOMAIN_LENGTH,
     MAX_TTL,
     MIN_DOMAIN_LENGTH,
     MIN_TTL,
-    PREMIUM_TIER_0_PRICE_SATS,
-    PREMIUM_TIER_1_PRICE_SATS,
-    PREMIUM_TIER_2_PRICE_SATS,
-    PREMIUM_TIER_3_PRICE_SATS,
-    PREMIUM_TIER_4_PRICE_SATS,
-    PREMIUM_TIER_5_PRICE_SATS,
-    PREMIUM_TIER_6_PRICE_SATS,
     PREMIUM_TIER_0_DOMAINS,
+    PREMIUM_TIER_0_PRICE_SATS,
     PREMIUM_TIER_1_DOMAINS,
+    PREMIUM_TIER_1_PRICE_SATS,
     PREMIUM_TIER_2_DOMAINS,
+    PREMIUM_TIER_2_PRICE_SATS,
     PREMIUM_TIER_3_DOMAINS,
+    PREMIUM_TIER_3_PRICE_SATS,
     PREMIUM_TIER_4_DOMAINS,
+    PREMIUM_TIER_4_PRICE_SATS,
     PREMIUM_TIER_5_DOMAINS,
+    PREMIUM_TIER_5_PRICE_SATS,
     PREMIUM_TIER_6_DOMAINS,
+    PREMIUM_TIER_6_PRICE_SATS,
     RESERVED_DOMAIN,
 } from './constants';
 
@@ -510,7 +511,9 @@ export class BtcNameResolver extends OP_NET {
 
         // Build message hash for signature verification
         // Structure: sha256(domainKey + newOwner + deadline)
-        const messageData = new BytesWriter(U256_BYTE_LENGTH + ADDRESS_BYTE_LENGTH + U64_BYTE_LENGTH);
+        const messageData = new BytesWriter(
+            U256_BYTE_LENGTH + ADDRESS_BYTE_LENGTH + U64_BYTE_LENGTH,
+        );
         messageData.writeU256(domainKey);
         messageData.writeAddress(newOwner);
         messageData.writeU64(deadline);
@@ -571,6 +574,12 @@ export class BtcNameResolver extends OP_NET {
 
         // Generate full subdomain key: "label.parent"
         const fullName = subdomainLabel + '.' + parentDomain;
+
+        // Validate full name length (DNS standard max is 253)
+        if (fullName.length > <i32>MAX_FULL_NAME_LENGTH) {
+            throw new Revert('Full name exceeds maximum length');
+        }
+
         const subdomainKey = this.getSubdomainKeyU256(fullName);
 
         // Check if subdomain already exists
@@ -579,9 +588,7 @@ export class BtcNameResolver extends OP_NET {
         }
 
         // Determine owner (default to caller if zero address)
-        const owner = subdomainOwner.equals(Address.zero())
-            ? Blockchain.tx.sender
-            : subdomainOwner;
+        const owner = subdomainOwner.equals(Address.zero()) ? Blockchain.tx.sender : subdomainOwner;
 
         const blockNumber = Blockchain.block.number;
 
@@ -643,10 +650,7 @@ export class BtcNameResolver extends OP_NET {
     /**
      * Set contenthash for a domain or subdomain using CIDv0 (Qm...).
      */
-    @method(
-        { name: 'name', type: ABIDataTypes.STRING },
-        { name: 'cid', type: ABIDataTypes.STRING },
-    )
+    @method({ name: 'name', type: ABIDataTypes.STRING }, { name: 'cid', type: ABIDataTypes.STRING })
     @emit('ContenthashChanged')
     public setContenthashCIDv0(calldata: Calldata): BytesWriter {
         const name = calldata.readStringWithLength();
@@ -678,10 +682,7 @@ export class BtcNameResolver extends OP_NET {
     /**
      * Set contenthash for a domain or subdomain using CIDv1 (bafy...).
      */
-    @method(
-        { name: 'name', type: ABIDataTypes.STRING },
-        { name: 'cid', type: ABIDataTypes.STRING },
-    )
+    @method({ name: 'name', type: ABIDataTypes.STRING }, { name: 'cid', type: ABIDataTypes.STRING })
     @emit('ContenthashChanged')
     public setContenthashCIDv1(calldata: Calldata): BytesWriter {
         const name = calldata.readStringWithLength();
@@ -813,10 +814,7 @@ export class BtcNameResolver extends OP_NET {
     /**
      * Set TTL for a domain or subdomain.
      */
-    @method(
-        { name: 'name', type: ABIDataTypes.STRING },
-        { name: 'ttl', type: ABIDataTypes.UINT64 },
-    )
+    @method({ name: 'name', type: ABIDataTypes.STRING }, { name: 'ttl', type: ABIDataTypes.UINT64 })
     @emit('TTLChanged')
     public setTTL(calldata: Calldata): BytesWriter {
         const name = calldata.readStringWithLength();
@@ -863,7 +861,9 @@ export class BtcNameResolver extends OP_NET {
         const domainKey = this.getDomainKeyU256(domainName);
 
         const exists = !this.domainExists.get(domainKey).isZero();
-        const owner = exists ? this._u256ToAddress(this.domainOwner.get(domainKey)) : Address.zero();
+        const owner = exists
+            ? this._u256ToAddress(this.domainOwner.get(domainKey))
+            : Address.zero();
         const createdAt = exists ? this.domainCreated.get(domainKey).toU64() : <u64>0;
         const ttl = exists ? this.domainTTL.get(domainKey).toU64() : <u64>0;
 
@@ -1304,6 +1304,10 @@ export class BtcNameResolver extends OP_NET {
     }
 
     private verifyPayment(requiredSats: u64): void {
+        if (!Blockchain.tx.origin.equals(Blockchain.tx.sender)) {
+            throw new Revert('Contracts not allowed.');
+        }
+
         const treasuryAddr = this.treasuryAddress.value;
         let totalPaid: u64 = 0;
 

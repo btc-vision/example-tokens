@@ -25,6 +25,7 @@
             "use": ["abort=src/registry/index/abort"]
         },
         "btc-resolver": {
+			"initialMemory": 4,
             "outFile": "build/Resolver.wasm",
             "use": ["abort=src/btc-resolver/index/abort"]
         }
